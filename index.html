@@ -1,3 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>XP-Q90EC 藍牙列印 - 預購出單系統</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- 核心：載入 CP936 (GBK) 編碼庫以解決熱感應印表機中文亂碼問題 -->
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/cpexcel.js"></script>
+
+  <style>
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      background-color: #0f172a;
+      color: #f1f5f9;
+    }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1e293b; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+  </style>
+</head>
+<body class="min-h-screen pb-12 selection:bg-indigo-500 selection:text-white">
+  
+  <div class="max-w-md mx-auto p-4 flex flex-col gap-5">
+    
+    <!-- 標頭卡片 -->
+    <header class="bg-slate-800/80 backdrop-blur border border-slate-700 rounded-2xl p-4 shadow-xl">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold tracking-tight text-white">預購出單 POS 系統</h1>
+            <p class="text-[11px] text-emerald-400 font-mono">編碼: CP936 | 設備: XP-Q90EC</p>
+          </div>
+        </div>
+        <div id="connStatus" class="flex flex-col items-end">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30 shadow-inner">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+            未連線
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 藍牙控制區 -->
+    <section class="bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-lg flex flex-col gap-3">
+      <h2 class="text-sm font-semibold text-slate-300">藍牙裝置控制</h2>
+      <div class="grid grid-cols-2 gap-3">
+        <button id="btnConnect" onclick="connectPrinter()" class="w-full py-3 px-2 bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all rounded-xl font-medium text-sm text-white shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+          搜尋並連線
+        </button>
+        <button id="btnDisconnect" onclick="disconnectPrinter()" disabled class="w-full py-3 px-2 bg-slate-700/80 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all rounded-xl font-medium text-sm text-slate-300 flex items-center justify-center gap-1">
+          中斷連線
+        </button>
+      </div>
+      <p id="btSupportNotice" class="text-[11px] text-slate-400 text-center font-mono mt-1">環境檢查中...</p>
+    </section>
+
+    <!-- 預購單列印操作區 -->
+    <section class="bg-gradient-to-br from-slate-800 to-amber-900/30 border border-amber-500/30 rounded-2xl p-5 shadow-lg flex flex-col items-center">
+      <div class="mb-4 w-full">
+        <div class="flex justify-between items-end border-b border-slate-700 pb-2 mb-3">
+          <h3 class="text-lg font-bold text-white">咩味時刻工作室</h3>
+          <span class="text-xs text-amber-400 font-mono">預購保留單</span>
+        </div>
+        
+        <!-- 模擬的預購訂單資料 -->
+        <div class="text-xs text-slate-300 font-mono space-y-1 mb-4 bg-slate-900 p-3 rounded-lg">
+          <p>單號：<span id="orderNo" class="text-white">PO-20261003-001</span></p>
+          <p>客戶：<span class="text-white">王小明 先生 (0912***456)</span></p>
+          <p>預計取貨：<span class="text-emerald-400">2026/10/05 14:00</span></p>
+        </div>
+      </div>
+      
+      <button onclick="printPreOrderReceipt()" class="w-full py-4 px-4 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-xl font-bold text-base shadow-lg shadow-amber-600/30 flex items-center justify-center gap-2 transition-all">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+        </svg>
+        列印預購單據
+      </button>
+    </section>
+
+    <!-- 系統日誌 -->
+    <section class="bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-lg flex flex-col gap-2 h-48">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-700/50">
+        <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-amber-400"></span> 執行日誌
+        </span>
+        <button onclick="clearLogs()" class="text-[11px] text-slate-400 hover:text-white transition-colors">清除</button>
+      </div>
+      <div id="logConsole" class="flex-1 overflow-y-auto text-[11px] font-mono space-y-1 pr-1">
+        <!-- 紀錄會顯示在此 -->
+      </div>
+    </section>
+
+  </div>
+
   <script>
     // --- 藍牙狀態 ---
     let bluetoothDevice = null;
@@ -284,3 +394,5 @@
       }
     }
   </script>
+</body>
+</html>
