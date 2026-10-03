@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>XP-Q90EC 藍牙列印 - 預購出單系統</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/cpexcel.js"></script>
+
+  <style>
+    body {
+      font-family: 'Noto Sans TC', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      background-color: #0f172a;
+      color: #f1f5f9;
+    }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1e293b; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+  </style>
+</head>
+<body class="min-h-screen pb-12 selection:bg-indigo-500 selection:text-white">
+  
+  <div class="max-w-md mx-auto p-4 flex flex-col gap-5">
+    
+    <!-- 標頭卡片 -->
+    <header class="bg-slate-800/80 backdrop-blur border border-slate-700 rounded-2xl p-4 shadow-xl">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold tracking-tight text-white">預購出單 POS 系統</h1>
+            <p class="text-[11px] text-emerald-400 font-mono">編碼: CP936 | 設備: XP-Q90EC</p>
+          </div>
+        </div>
+        <div id="connStatus" class="flex flex-col items-end">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30 shadow-inner">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+            未連線
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 藍牙控制區 -->
+    <section class="bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-lg flex flex-col gap-3">
+      <h2 class="text-sm font-semibold text-slate-300">藍牙裝置控制</h2>
+      <div class="grid grid-cols-2 gap-3">
+        <button id="btnConnect" onclick="connectPrinter()" class="w-full py-3 px-2 bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all rounded-xl font-medium text-sm text-white shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2">
+          搜尋並連線
+        </button>
+        <button id="btnDisconnect" onclick="disconnectPrinter()" disabled class="w-full py-3 px-2 bg-slate-700/80 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all rounded-xl font-medium text-sm text-slate-300 flex items-center justify-center gap-1">
+          中斷連線
+        </button>
+      </div>
+      <p id="btSupportNotice" class="text-[11px] text-slate-400 text-center font-mono mt-1">環境檢查中...</p>
+    </section>
+
+    <!-- 預購單列印操作區 -->
+    <section class="bg-gradient-to-br from-slate-800 to-amber-900/30 border border-amber-500/30 rounded-2xl p-5 shadow-lg flex flex-col items-center">
+      <div class="mb-4 w-full">
+        <div class="flex justify-between items-end border-b border-slate-700 pb-2 mb-3">
+          <h3 class="text-lg font-bold text-white">咩味時刻工作室</h3>
+          <span class="text-xs text-amber-400 font-mono">預購保留單</span>
+        </div>
+      </div>
+      
+      <button onclick="printPreOrderReceipt()" class="w-full py-4 px-4 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-xl font-bold text-base shadow-lg shadow-amber-600/30 flex items-center justify-center gap-2 transition-all">
+        列印預購單據
+      </button>
+    </section>
+
+    <!-- 系統日誌 -->
+    <section class="bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-lg flex flex-col gap-2 h-48">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-700/50">
+        <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+          執行日誌
+        </span>
+        <button onclick="clearLogs()" class="text-[11px] text-slate-400 hover:text-white transition-colors">清除</button>
+      </div>
+      <div id="logConsole" class="flex-1 overflow-y-auto text-[11px] font-mono space-y-1 pr-1"></div>
+    </section>
+
+  </div>
+
+  <script>
+    let bluetoothDevice = null;
+    let bluetoothServer = null;
+    let printerCharacteristic = null;
+
+    const SERVICE_UUIDS = [
+      '000018f0-0000-1000-8000-00805f9b34fb', 
+      '49535343-fe7d-4ae5-8fa9-9fafd205e455', 
+      'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
+    ];
+    const CHUNK_SIZE = 100;
+
+    // --- 排版常數與 ESC/POS 指令 ---
+    const ALIGN_LEFT = [0x1B, 0x61, 0x00];
+    const ALIGN_CENTER = [0x1B, 0x61, 0x01];
+    const ALIGN_RIGHT = [0x1B, 0x61, 0x02];
+    
+    const FONT_NORMAL = [0x1D, 0x21, 0x00];      // 正常大小
+    const FONT_DOUBLE_H = [0x1D, 0x21, 0x01];    // 雙倍高
+    const FONT_DOUBLE_W = [0x1D, 0x21, 0x10];    // 雙倍寬
+    const FONT_LARGE = [0x1D, 0x21, 0x11];       // 雙倍寬高 (放大)
+    const FONT_XLARGE = [0x1D, 0x21, 0x22];      // 三倍寬高
+    
+    const BOLD_ON = [0x1B, 0x45, 0x01];
+    const BOLD_OFF = [0x1B, 0x45, 0x00];
+
+    // --- 日誌工具 ---
+    function log(msg, type = 'info') {
+      const consoleEl = document.getElementById('logConsole');
+      const div = document.createElement('div');
+      let colorClass = type === 'error' ? 'text-rose-400' : (type === 'success' ? 'text-emerald-400' : 'text-slate-300');
+      div.className = `${colorClass} leading-tight break-all pb-1`;
+      div.innerText = msg;
+      consoleEl.appendChild(div);
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+    function clearLogs() { document.getElementById('logConsole').innerHTML = ''; }
+
+    window.onload = function() {
+      if (navigator.bluetooth) log('✔️ Web Bluetooth API 已就緒', 'success');
+      else log('❌ 瀏覽器不支援 Web Bluetooth', 'error');
+    };
+
+    // --- 藍牙連線邏輯 ---
+    async function connectPrinter() { /* 保持原樣 */
+      try {
+        bluetoothDevice = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [...SERVICE_UUIDS, 'generic_access'] });
+        bluetoothServer = await bluetoothDevice.gatt.connect();
+        printerCharacteristic = await findWritableCharacteristic(bluetoothServer);
+        if (printerCharacteristic) updateUI(true);
+      } catch (err) { log(`連線失敗: ${err.message}`, 'error'); }
+    }
+
+    async function findWritableCharacteristic(server) {
+      for (let uuid of SERVICE_UUIDS) {
+        try {
+          const service = await server.getPrimaryService(uuid);
+          const chars = await service.getCharacteristics();
+          for (let char of chars) { if (char.properties.write || char.properties.writeWithoutResponse) return char; }
+        } catch(e) {}
+      }
+      return null;
+    }
+
+    function disconnectPrinter() { if (bluetoothDevice?.gatt.connected) bluetoothDevice.gatt.disconnect(); updateUI(false); }
+    function updateUI(isConnected) { /* 保持原樣更新介面 */
+      document.getElementById('btnDisconnect').disabled = !isConnected;
+    }
+
+    // --- 雙欄位與排版計算邏輯 ---
+    function getStringWidth(str) {
+      let len = 0;
+      for (let i = 0; i < str.length; i++) {
+        len += (str.charCodeAt(i) > 255) ? 2 : 1; // 中文佔 2，英數佔 1
+      }
+      return len;
+    }
+
+    // 動態產生雙欄位字串 (預設 58mm 紙張通常為 32 字元)
+    function buildTwoColumn(leftStr, rightStr, totalWidth = 32) {
+      const leftLen = getStringWidth(leftStr);
+      const rightLen = getStringWidth(rightStr);
+      const spaceLen = totalWidth - leftLen - rightLen;
+      
+      if (spaceLen > 0) {
+        return leftStr + ' '.repeat(spaceLen) + rightStr + '\n';
+      } else {
+        return leftStr + ' ' + rightStr + '\n'; // 防呆：至少留一格空白
+      }
+    }
+
+    function padRight(str, totalWidth) {
+      const len = getStringWidth(str);
+      return len >= totalWidth ? str : str + ' '.repeat(totalWidth - len);
+    }
+    function padLeft(str, totalWidth) {
+      const len = getStringWidth(str);
+      return len >= totalWidth ? str : ' '.repeat(totalWidth - len) + str;
+    }
+
+    function encodeToCP936(text) { return new Uint8Array(cptable.utils.encode(936, text)); }
+
+    async function sendRawBytes(payloadBytes) {
+      let offset = 0;
+      while (offset < payloadBytes.length) {
+        const chunk = payloadBytes.slice(offset, offset + CHUNK_SIZE);
+        if (printerCharacteristic.properties.writeWithoutResponse) await printerCharacteristic.writeValueWithoutResponse(chunk);
+        else await printerCharacteristic.writeValue(chunk);
+        offset += CHUNK_SIZE;
+        await new Promise(resolve => setTimeout(resolve, 20)); 
+      }
+    }
+
+    // --- 核心：列印預購出單 (套用雙欄位與字體放大) ---
+    async function printPreOrderReceipt() {
+      if (!printerCharacteristic) return log('請先點擊「搜尋並連線」', 'warn');
+
+      try {
+        const payload = [];
+        const addBytes = (arr) => { for(let i=0; i<arr.length; i++) payload.push(arr[i]); };
+        const addText = (text) => { addBytes(encodeToCP936(text)); };
+
+        // 初始化與編碼設定
+        addBytes([0x1B, 0x40]); // ESC @
+        addBytes([0x1C, 0x26]); // FS & (啟用漢字)
+
+        // ================= 1. 標頭 (置中、放大) =================
+        addBytes(ALIGN_CENTER);
+        addBytes(FONT_LARGE);   // 雙倍寬高
+        addBytes(BOLD_ON);
+        addText("咩味時刻工作室\n");
+        addBytes(BOLD_OFF);
+        
+        addBytes(FONT_NORMAL);  // 恢復正常大小
+        addText("================================\n");
+
+        // 大字體訂單號 (模仿外送單號放大)
+        addBytes(FONT_XLARGE);  // 三倍寬高
+        addBytes(BOLD_ON);
+        addText("單號：001\n");
+        addBytes(BOLD_OFF);
+        
+        addBytes(FONT_NORMAL);
+        addText("================================\n");
+
+        // ================= 2. 雙欄位資訊 (靠左) =================
+        addBytes(ALIGN_LEFT);
+        addText(buildTwoColumn("客戶: 王小明", "0912***456"));
+        addText(buildTwoColumn("取貨時間:", "2026/10/05 14:00"));
+        addText(buildTwoColumn("付款方式:", "已付款 (信用卡)"));
+        addText("--------------------------------\n");
+
+        // ================= 3. 商品列表 (多欄位排版) =================
+        // 表頭: 品名(16) | 數量(6) | 金額(10) = 32
+        addText(padRight("餐點名稱", 16) + padRight("數量", 6) + padLeft("金額", 10) + "\n");
+        addText("--------------------------------\n");
+        
+        addText(padRight("原味山羊乳(瓶)", 16) + padRight("2", 6) + padLeft("300", 10) + "\n");
+        addText(padRight("草莓山羊乳(瓶)", 16) + padRight("1", 6) + padLeft("160", 10) + "\n");
+        addText("--------------------------------\n");
+
+        // ================= 4. 總計金額 (雙欄位 + 局部放大) =================
+        addText(buildTwoColumn("數量合計:", "3"));
+        
+        // 放大總計金額列
+        addBytes(FONT_LARGE); 
+        addBytes(BOLD_ON);
+        // 注意：字體放大為雙倍寬時，一行的總字元數會從 32 變成 16，所以 buildTwoColumn 的寬度要設為 16
+        addText(buildTwoColumn("合計AMT:", "$460", 16)); 
+        addBytes(BOLD_OFF);
+        addBytes(FONT_NORMAL);
+
+        addText("================================\n");
+
+        // ================= 5. 頁尾 =================
+        addBytes(ALIGN_CENTER);
+        addText("* 取餐號碼不代表取餐順序 *\n");
+        addText("感謝您的惠顧\n\n\n\n");
+
+        // 切紙
+        addBytes([0x1D, 0x56, 0x42, 0x00]); 
+
+        await sendRawBytes(new Uint8Array(payload));
+        log('✅ 列印指令傳送完成', 'success');
+        
+      } catch (error) {
+        log(`列印錯誤: ${error.message}`, 'error');
+      }
+    }
+  </script>
+</body>
+</html>
