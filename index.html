@@ -3,16 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>XP-Q90EC 藍牙列印 - 預購出單系統</title>
+  <title>咩味時刻工作室 - 智慧出單系統 v2.0</title>
   
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
   
-  <!-- 核心：載入 CP936 (GBK) 編碼庫以解決熱感應印表機中文亂碼問題 -->
-  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/cpexcel.js"></script>
-
   <style>
     body {
       font-family: 'Noto Sans TC', sans-serif;
@@ -20,378 +17,500 @@
       background-color: #0f172a;
       color: #f1f5f9;
     }
-    .font-mono { font-family: 'JetBrains Mono', monospace; }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #1e293b; }
-    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    #previewCanvas {
+      background-color: white;
+      width: 100%;
+      max-width: 384px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+      border-radius: 4px;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: flex; }
   </style>
 </head>
-<body class="min-h-screen pb-12 selection:bg-indigo-500 selection:text-white">
-  
-  <div class="max-w-md mx-auto p-4 flex flex-col gap-5">
+<body class="min-h-screen pb-20 flex flex-col">
+
+  <!-- 頂部標頭 -->
+  <header class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-50">
+    <div class="flex justify-between items-center max-w-md mx-auto">
+      <div>
+        <h1 class="font-bold text-white text-lg">咩味時刻工作室</h1>
+        <p class="text-[11px] text-emerald-400">畫布模式 (寬度: 384px)</p>
+      </div>
+      <div id="statusBadge" class="px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+        未連線
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 w-full max-w-md mx-auto p-4">
     
-    <!-- 標頭卡片 -->
-    <header class="bg-slate-800/80 backdrop-blur border border-slate-700 rounded-2xl p-4 shadow-xl">
-      <div class="flex items-center justify-between mb-2">
-        <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
-            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
-            </svg>
-          </div>
-          <div>
-            <h1 class="text-lg font-bold tracking-tight text-white">預購出單 POS 系統</h1>
-            <p class="text-[11px] text-emerald-400 font-mono">編碼: CP936 | 設備: XP-Q90EC</p>
-          </div>
-        </div>
-        <div id="connStatus" class="flex flex-col items-end">
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30 shadow-inner">
-            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
-            未連線
-          </span>
-        </div>
-      </div>
-    </header>
-
-    <!-- 藍牙控制區 -->
-    <section class="bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-lg flex flex-col gap-3">
-      <h2 class="text-sm font-semibold text-slate-300">藍牙裝置控制</h2>
-      <div class="grid grid-cols-2 gap-3">
-        <button id="btnConnect" onclick="connectPrinter()" class="w-full py-3 px-2 bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all rounded-xl font-medium text-sm text-white shadow-md shadow-indigo-600/25 flex items-center justify-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-          搜尋並連線
-        </button>
-        <button id="btnDisconnect" onclick="disconnectPrinter()" disabled class="w-full py-3 px-2 bg-slate-700/80 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all rounded-xl font-medium text-sm text-slate-300 flex items-center justify-center gap-1">
-          中斷連線
-        </button>
-      </div>
-      <p id="btSupportNotice" class="text-[11px] text-slate-400 text-center font-mono mt-1">環境檢查中...</p>
-    </section>
-
-    <!-- 預購單列印操作區 -->
-    <section class="bg-gradient-to-br from-slate-800 to-amber-900/30 border border-amber-500/30 rounded-2xl p-5 shadow-lg flex flex-col items-center">
-      <div class="mb-4 w-full">
-        <div class="flex justify-between items-end border-b border-slate-700 pb-2 mb-3">
-          <h3 class="text-lg font-bold text-white">咩味時刻工作室</h3>
-          <span class="text-xs text-amber-400 font-mono">預購保留單</span>
-        </div>
-        
-        <!-- 模擬的預購訂單資料 -->
-        <div class="text-xs text-slate-300 font-mono space-y-1 mb-4 bg-slate-900 p-3 rounded-lg">
-          <p>單號：<span id="orderNo" class="text-white">PO-20261003-001</span></p>
-          <p>客戶：<span class="text-white">王小明 先生 (0912***456)</span></p>
-          <p>預計取貨：<span class="text-emerald-400">2026/10/05 14:00</span></p>
-        </div>
-      </div>
+    <!-- ==================== 分頁 A: 登記 ==================== -->
+    <section id="tab-A" class="tab-content active flex-col gap-5">
+      <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-2">A. 預購登記 (便貼)</h2>
       
-      <button onclick="printPreOrderReceipt()" class="w-full py-4 px-4 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-xl font-bold text-base shadow-lg shadow-amber-600/30 flex items-center justify-center gap-2 transition-all">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-        </svg>
-        列印預購單據
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold">取貨站點</label>
+        <div class="flex gap-2 overflow-x-auto no-scrollbar py-1">
+          <button class="site-btn whitespace-nowrap px-4 py-2 rounded-full border border-indigo-500 bg-indigo-600 text-white text-sm font-medium transition-all" onclick="selectSite(this, '土農- 本會直銷站')">土農- 本會直銷站</button>
+          <button class="site-btn whitespace-nowrap px-4 py-2 rounded-full border border-slate-600 bg-slate-800 text-slate-300 text-sm font-medium transition-all" onclick="selectSite(this, '土農- 清水')">土農- 清水</button>
+          <button class="site-btn whitespace-nowrap px-4 py-2 rounded-full border border-slate-600 bg-slate-800 text-slate-300 text-sm font-medium transition-all" onclick="selectSite(this, '土農- 永豐')">土農- 永豐</button>
+          <button class="site-btn whitespace-nowrap px-4 py-2 rounded-full border border-slate-600 bg-slate-800 text-slate-300 text-sm font-medium transition-all" onclick="selectSite(this, '其他')">其他</button>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold">客戶姓名</label>
+        <input type="text" id="inputName" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl p-3 outline-none focus:border-indigo-500" placeholder="例：王小明">
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 flex flex-col items-center gap-2">
+          <span class="text-sm font-bold">大瓶數量</span>
+          <div class="flex items-center gap-3">
+            <button onclick="changeQty('largeQty', -1)" class="w-10 h-10 rounded-full bg-slate-700 text-white font-bold text-xl active:bg-slate-600">-</button>
+            <span id="largeQty" class="text-2xl font-bold w-6 text-center">0</span>
+            <button onclick="changeQty('largeQty', 1)" class="w-10 h-10 rounded-full bg-amber-600 text-white font-bold text-xl active:bg-amber-500">+</button>
+          </div>
+        </div>
+        <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 flex flex-col items-center gap-2">
+          <span class="text-sm font-bold">中瓶數量</span>
+          <div class="flex items-center gap-3">
+            <button onclick="changeQty('mediumQty', -1)" class="w-10 h-10 rounded-full bg-slate-700 text-white font-bold text-xl active:bg-slate-600">-</button>
+            <span id="mediumQty" class="text-2xl font-bold w-6 text-center">0</span>
+            <button onclick="changeQty('mediumQty', 1)" class="w-10 h-10 rounded-full bg-amber-600 text-white font-bold text-xl active:bg-amber-500">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label class="text-sm font-semibold">記事本備註 (選填)</label>
+        <input type="text" id="inputNote" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl p-3 outline-none focus:border-indigo-500" placeholder="例：記事本預購">
+      </div>
+
+      <button onclick="addOrder()" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white rounded-xl font-bold text-lg shadow-lg transition-all">
+        加入列印佇列
       </button>
     </section>
 
-    <!-- 系統日誌 -->
-    <section class="bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-lg flex flex-col gap-2 h-48">
-      <div class="flex items-center justify-between pb-2 border-b border-slate-700/50">
-        <span class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-amber-400"></span> 執行日誌
-        </span>
-        <button onclick="clearLogs()" class="text-[11px] text-slate-400 hover:text-white transition-colors">清除</button>
+    <!-- ==================== 分頁 B: 清單與總單 ==================== -->
+    <section id="tab-B" class="tab-content flex-col gap-4">
+      <div class="flex p-1 bg-slate-800 rounded-xl border border-slate-700">
+        <button id="btn-b1" onclick="switchB('B1')" class="flex-1 py-2 text-sm font-bold rounded-lg bg-slate-600 text-white transition-colors">B-1 客戶便貼清單</button>
+        <button id="btn-b2" onclick="switchB('B2')" class="flex-1 py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white transition-colors">B-2 站點出貨總單</button>
       </div>
-      <div id="logConsole" class="flex-1 overflow-y-auto text-[11px] font-mono space-y-1 pr-1">
-        <!-- 紀錄會顯示在此 -->
+
+      <!-- B-1 -->
+      <div id="content-B1" class="flex flex-col gap-3">
+        <div class="flex justify-between items-end border-b border-slate-700 pb-2">
+          <h2 class="text-sm font-bold text-slate-400">待列印便貼</h2>
+          <button onclick="goToPreview('A1')" class="text-xs bg-amber-600 text-white px-3 py-1.5 rounded font-bold shadow active:scale-95">設定與列印</button>
+        </div>
+        <div id="orderList" class="flex flex-col gap-2">
+          <p class="text-slate-500 text-sm text-center py-4">目前沒有訂單</p>
+        </div>
+      </div>
+
+      <!-- B-2 -->
+      <div id="content-B2" class="hidden flex-col gap-4">
+        <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+          <h2 class="text-sm font-bold text-slate-400">站點當日匯總</h2>
+          <button onclick="tallySite()" class="text-xs text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 rounded">重新整理統計</button>
+        </div>
+
+        <select id="summarySiteSelect" onchange="tallySite()" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl p-3 outline-none">
+          <option value="土農- 本會直銷站">土農- 本會直銷站</option>
+          <option value="土農- 清水">土農- 清水</option>
+          <option value="土農- 永豐">土農- 永豐</option>
+          <option value="其他">其他</option>
+        </select>
+
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col gap-4">
+          <h3 class="font-bold text-center text-lg border-b border-slate-700 pb-2">站點出貨內容</h3>
+          <div class="flex justify-between items-center">
+            <span class="font-bold text-lg">大瓶 (瓶)</span>
+            <div class="flex items-center gap-3">
+              <input type="number" id="sumLarge" value="0" class="w-16 bg-slate-900 border border-slate-700 text-white text-center rounded p-1 font-bold text-xl outline-none">
+            </div>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="font-bold text-lg">中瓶 (瓶)</span>
+            <div class="flex items-center gap-3">
+              <input type="number" id="sumMedium" value="0" class="w-16 bg-slate-900 border border-slate-700 text-white text-center rounded p-1 font-bold text-xl outline-none">
+            </div>
+          </div>
+        </div>
+        <button onclick="goToPreview('A2')" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl font-bold text-lg shadow-lg transition-all">預覽並列印出貨單</button>
       </div>
     </section>
 
-  </div>
+    <!-- ==================== 分頁 C: 排版與預覽 ==================== -->
+    <section id="tab-C" class="tab-content flex-col gap-4">
+      <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-2">C. 排版與預覽 (畫布)</h2>
+      
+      <div class="flex justify-center bg-slate-900 p-4 rounded-xl border border-slate-700 overflow-hidden">
+        <canvas id="previewCanvas"></canvas>
+      </div>
+
+      <!-- A-1 排版控制面板 (新增 px 與 粗細獨立設定) -->
+      <div id="a1Settings" class="bg-slate-800 p-3 rounded-xl border border-slate-700 hidden flex-col gap-3">
+        <h3 class="text-xs text-slate-400 font-bold">各行字體設定 (單位: px)</h3>
+        
+        <!-- Line 1 -->
+        <div class="flex items-center justify-between text-sm">
+          <span class="w-16">地點日期</span>
+          <input type="number" id="fsL1" value="24" class="w-14 bg-slate-900 text-center text-white border border-slate-600 rounded p-1" onchange="renderCanvas()"> px
+          <select id="fwL1" class="bg-slate-900 border border-slate-600 text-white rounded p-1" onchange="renderCanvas()">
+            <option value="400">一般</option>
+            <option value="700">加粗</option>
+            <option value="900" selected>特粗</option>
+          </select>
+        </div>
+        <!-- Line 2 -->
+        <div class="flex items-center justify-between text-sm">
+          <span class="w-16">客戶姓名</span>
+          <input type="number" id="fsL2" value="48" class="w-14 bg-slate-900 text-center text-white border border-slate-600 rounded p-1" onchange="renderCanvas()"> px
+          <select id="fwL2" class="bg-slate-900 border border-slate-600 text-white rounded p-1" onchange="renderCanvas()">
+            <option value="400">一般</option>
+            <option value="700">加粗</option>
+            <option value="900" selected>特粗</option>
+          </select>
+        </div>
+        <!-- Line 3 -->
+        <div class="flex items-center justify-between text-sm">
+          <span class="w-16">內容數量</span>
+          <input type="number" id="fsL3" value="40" class="w-14 bg-slate-900 text-center text-white border border-slate-600 rounded p-1" onchange="renderCanvas()"> px
+          <select id="fwL3" class="bg-slate-900 border border-slate-600 text-white rounded p-1" onchange="renderCanvas()">
+            <option value="400">一般</option>
+            <option value="700" selected>加粗</option>
+            <option value="900">特粗</option>
+          </select>
+        </div>
+        <!-- Line 4 -->
+        <div class="flex items-center justify-between text-sm">
+          <span class="w-16">備註內容</span>
+          <input type="number" id="fsL4" value="24" class="w-14 bg-slate-900 text-center text-white border border-slate-600 rounded p-1" onchange="renderCanvas()"> px
+          <select id="fwL4" class="bg-slate-900 border border-slate-600 text-white rounded p-1" onchange="renderCanvas()">
+            <option value="400" selected>一般</option>
+            <option value="700">加粗</option>
+            <option value="900">特粗</option>
+          </select>
+        </div>
+      </div>
+
+      <button onclick="executeCanvasPrint()" class="w-full py-4 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-xl font-bold text-lg shadow-lg flex justify-center gap-2">
+        傳送至印表機
+      </button>
+    </section>
+
+    <!-- ==================== 分頁 D: 雲端導入設定 ==================== -->
+    <section id="tab-D" class="tab-content flex-col gap-4">
+      <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-2">D. 雲端資料綁定 (Google Sheets)</h2>
+      
+      <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col gap-4">
+        <div class="flex flex-col gap-2">
+          <label class="text-sm font-semibold">選擇對應業務模板</label>
+          <select id="templateType" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl p-3 outline-none focus:border-indigo-500">
+            <option value="A1">A-1 個人預購站/便貼</option>
+            <option value="A2">A-2 門市收貨單</option>
+            <option value="A3">A-3 門市紀錄-臨時配送</option>
+            <option value="B">B 農民收據</option>
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label class="text-sm font-semibold">Google Sheet 共用網址</label>
+          <input type="text" id="sheetUrl" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl p-3 text-xs outline-none focus:border-indigo-500" placeholder="貼上含有 /edit?usp=sharing 的網址">
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label class="text-sm font-semibold">指定工作表名稱</label>
+          <input type="text" id="sheetName" class="w-full bg-slate-900 border border-slate-700 text-white rounded-xl p-3 outline-none focus:border-indigo-500" placeholder="例如：GOTx">
+        </div>
+
+        <button onclick="saveSheetConfig()" class="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-bold shadow-lg mt-2">
+          儲存綁定設定
+        </button>
+      </div>
+
+      <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-700 border-dashed text-sm text-slate-400 text-center">
+        💡 提示：設定完成後，系統將可從上方指定的 Google Sheet 自動拉取名單，並將資料轉換至 B 分頁的「待列印清單」中。
+      </div>
+    </section>
+
+    <!-- ==================== 分頁 E: 設備連線 ==================== -->
+    <section id="tab-E" class="tab-content flex-col gap-4">
+      <h2 class="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-2">E. 設備連線狀態</h2>
+      <button onclick="connectPrinter()" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold">尋找藍牙印表機</button>
+      <div class="bg-slate-900 border border-slate-700 rounded-xl p-3 h-48 flex flex-col mt-2">
+        <div class="flex justify-between border-b border-slate-800 pb-2 mb-2 text-xs font-bold text-slate-500">
+          <span>執行日誌</span>
+          <button onclick="document.getElementById('log').innerHTML=''" class="hover:text-white">清除</button>
+        </div>
+        <div id="log" class="flex-1 overflow-y-auto text-[11px] font-mono space-y-1 text-slate-400 break-all pr-2"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 底部導航列 -->
+  <nav class="fixed bottom-0 w-full bg-slate-800 border-t border-slate-700 flex justify-around pb-6 pt-2 z-50">
+    <button onclick="switchTab('A')" class="nav-btn text-indigo-400 flex flex-col items-center gap-1 w-1/5">
+      <span class="text-[10px] font-bold">登記</span>
+    </button>
+    <button onclick="switchTab('B')" class="nav-btn text-slate-500 flex flex-col items-center gap-1 w-1/5">
+      <span class="text-[10px] font-bold">清單</span>
+    </button>
+    <button onclick="switchTab('C')" class="nav-btn text-slate-500 flex flex-col items-center gap-1 w-1/5">
+      <span class="text-[10px] font-bold">預覽</span>
+    </button>
+    <button onclick="switchTab('D')" class="nav-btn text-slate-500 flex flex-col items-center gap-1 w-1/5">
+      <span class="text-[10px] font-bold">導入</span>
+    </button>
+    <button onclick="switchTab('E')" class="nav-btn text-slate-500 flex flex-col items-center gap-1 w-1/5">
+      <span class="text-[10px] font-bold">連線</span>
+    </button>
+  </nav>
 
   <script>
-    // --- 藍牙狀態 ---
-    let bluetoothDevice = null;
-    let bluetoothServer = null;
-    let printerCharacteristic = null;
+    // === 核心邏輯 ===
+    let currentSite = '土農- 本會直銷站';
+    let orders = [];
+    let currentPrintMode = 'A1';
+    let previewData = null;
+    let btDevice = null, btCharacteristic = null;
+    const CHUNK_SIZE = 100;
 
-    // 熱感應印表機常見的 UUID
-    const SERVICE_UUIDS = [
-      '000018f0-0000-1000-8000-00805f9b34fb', // Standard POS Service
-      '49535343-fe7d-4ae5-8fa9-9fafd205e455', // ISSC
-      'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
-    ];
-    
-    const CHUNK_SIZE = 100; // MTU 安全切塊大小
-
-    // --- 日誌工具 ---
-    function log(msg, type = 'info') {
-      const consoleEl = document.getElementById('logConsole');
-      const time = new Date().toLocaleTimeString('en-US', { hour12: false, fractionalSecondDigits: 2 });
-      
-      const div = document.createElement('div');
-      let colorClass = 'text-slate-300';
-      if (type === 'error') colorClass = 'text-rose-400 font-bold';
-      if (type === 'success') colorClass = 'text-emerald-400';
-      if (type === 'warn') colorClass = 'text-amber-300';
-      
-      div.className = `${colorClass} leading-tight break-all pb-1`;
-      div.innerHTML = `<span class="text-slate-500">[${time}]</span> ${msg}`;
-      
-      consoleEl.appendChild(div);
-      consoleEl.scrollTop = consoleEl.scrollHeight;
+    // 頁籤切換
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.getElementById('tab-' + tabId).classList.add('active');
+      const btns = document.querySelectorAll('.nav-btn');
+      btns.forEach(b => { b.classList.remove('text-indigo-400'); b.classList.add('text-slate-500'); });
+      const index = ['A','B','C','D','E'].indexOf(tabId);
+      btns[index].classList.add('text-indigo-400');
+      btns[index].classList.remove('text-slate-500');
     }
 
-    function clearLogs() {
-      document.getElementById('logConsole').innerHTML = '';
-      log('日誌已清除');
+    function switchB(mode) {
+      document.getElementById('content-B1').classList.add('hidden');
+      document.getElementById('content-B2').classList.add('hidden');
+      document.getElementById('btn-b1').className = "flex-1 py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white transition-colors";
+      document.getElementById('btn-b2').className = "flex-1 py-2 text-sm font-bold rounded-lg text-slate-400 hover:text-white transition-colors";
+      
+      document.getElementById('content-' + mode).classList.remove('hidden');
+      document.getElementById('content-' + mode).classList.add('flex');
+      
+      if(mode === 'B1') {
+        document.getElementById('btn-b1').className = "flex-1 py-2 text-sm font-bold rounded-lg bg-slate-600 text-white";
+        renderOrderList();
+      } else {
+        document.getElementById('btn-b2').className = "flex-1 py-2 text-sm font-bold rounded-lg bg-slate-600 text-white";
+        tallySite();
+      }
     }
 
-    // --- 初始化檢查 ---
-    window.onload = function() {
-      const notice = document.getElementById('btSupportNotice');
-      if (navigator.bluetooth) {
-        notice.textContent = '✔️ Web Bluetooth API 已就緒';
-        notice.className = 'text-[11px] text-emerald-400 text-center font-mono mt-1';
-        log('藍牙環境檢查通過');
-      } else {
-        notice.textContent = '❌ 瀏覽器不支援 Web Bluetooth';
-        notice.className = 'text-[11px] text-rose-400 text-center font-mono mt-1';
-        log('錯誤：請在 iOS 使用 Bluefy 或 Android Chrome 開啟此網頁', 'error');
-      }
+    // A 分頁操作
+    function selectSite(btn, siteName) {
+      currentSite = siteName;
+      document.querySelectorAll('.site-btn').forEach(b => b.className = "site-btn whitespace-nowrap px-4 py-2 rounded-full border border-slate-600 bg-slate-800 text-slate-300 text-sm font-medium transition-all");
+      btn.className = "site-btn whitespace-nowrap px-4 py-2 rounded-full border border-indigo-500 bg-indigo-600 text-white text-sm font-medium transition-all";
+    }
 
-      if (typeof cptable !== 'undefined') {
-        log('CP936 編碼庫 (cpexcel.js) 載入成功', 'success');
-      } else {
-        log('警告：CP936 編碼庫尚未載入', 'error');
-      }
-    };
+    function changeQty(id, amount) {
+      const el = document.getElementById(id);
+      let val = parseInt(el.innerText) + amount;
+      el.innerText = Math.max(0, val);
+    }
 
-    // --- 藍牙連線邏輯 ---
-    async function connectPrinter() {
-      if (!navigator.bluetooth) {
-        alert("請使用支援 Web Bluetooth 的瀏覽器。");
-        return;
-      }
+    function addOrder() {
+      const name = document.getElementById('inputName').value.trim();
+      const large = parseInt(document.getElementById('largeQty').innerText);
+      const medium = parseInt(document.getElementById('mediumQty').innerText);
+      const note = document.getElementById('inputNote').value.trim();
 
-      try {
-        log('請求藍牙裝置配對 (請選擇 XP-Q90EC)...');
-        bluetoothDevice = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: [...SERVICE_UUIDS, 'generic_access']
+      if(!name && large === 0 && medium === 0) return alert("請輸入資訊！");
+      orders.push({ id: Date.now(), site: currentSite, name, large, medium, note, checked: true });
+      alert("已加入佇列！");
+      renderOrderList();
+    }
+
+    // B 分頁操作
+    function renderOrderList() {
+      const listEl = document.getElementById('orderList');
+      if(orders.length === 0) return listEl.innerHTML = '<p class="text-center text-slate-500 py-4">目前沒有訂單</p>';
+      
+      let html = '';
+      const groups = {};
+      orders.forEach(o => { if(!groups[o.site]) groups[o.site] = []; groups[o.site].push(o); });
+      
+      for (const [site, items] of Object.entries(groups)) {
+        html += `<div class="bg-slate-800 rounded-lg p-2 border border-slate-700 mb-2"><div class="text-xs text-amber-400 font-bold border-b border-slate-700 pb-1 mb-2">${site}</div>`;
+        items.forEach(o => {
+          html += `
+            <div class="flex items-center gap-3 bg-slate-900 p-2 rounded mb-2">
+              <input type="checkbox" class="w-5 h-5 rounded border-slate-600" ${o.checked ? 'checked' : ''} onchange="orders.find(x=>x.id===${o.id}).checked = this.checked">
+              <div class="flex-1">
+                <div class="font-bold text-white">${o.name}</div>
+                <div class="text-sm text-slate-300">大瓶: ${o.large} | 中瓶: ${o.medium}</div>
+                ${o.note ? `<div class="text-[10px] text-indigo-300 mt-1">【${o.note}】</div>` : ''}
+              </div>
+            </div>`;
         });
+        html += `</div>`;
+      }
+      listEl.innerHTML = html;
+    }
 
-        log(`已選擇: ${bluetoothDevice.name || 'Unknown Device'}`, 'success');
-        bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
+    function tallySite() {
+      const site = document.getElementById('summarySiteSelect').value;
+      let sL = 0, sM = 0;
+      orders.filter(o => o.site === site).forEach(o => { sL += o.large; sM += o.medium; });
+      document.getElementById('sumLarge').value = sL;
+      document.getElementById('sumMedium').value = sM;
+    }
 
-        log('正在連接 GATT 伺服器...');
-        bluetoothServer = await bluetoothDevice.gatt.connect();
+    // C 分頁預覽與繪圖
+    function goToPreview(mode) {
+      currentPrintMode = mode;
+      if (mode === 'A1') {
+        const checked = orders.filter(o => o.checked);
+        if(checked.length === 0) return alert("請先勾選便貼！");
+        previewData = checked[0];
+        document.getElementById('a1Settings').classList.replace('hidden', 'flex');
+      } else {
+        document.getElementById('a1Settings').classList.replace('flex', 'hidden');
+      }
+      renderCanvas();
+      switchTab('C');
+    }
+
+    function renderCanvas() {
+      const canvas = document.getElementById('previewCanvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 384; // 絕對物理像素鎖定
+      
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, 1000); // 預填白底
+      ctx.fillStyle = '#000000';
+      ctx.textAlign = 'center';
+
+      if(currentPrintMode === 'A1') {
+        if(!previewData) return;
+        const fs1 = parseInt(document.getElementById('fsL1').value);
+        const fw1 = document.getElementById('fwL1').value;
+        const fs2 = parseInt(document.getElementById('fsL2').value);
+        const fw2 = document.getElementById('fwL2').value;
+        const fs3 = parseInt(document.getElementById('fsL3').value);
+        const fw3 = document.getElementById('fwL3').value;
+        const fs4 = parseInt(document.getElementById('fsL4').value);
+        const fw4 = document.getElementById('fwL4').value;
+
+        let y = 40;
+        canvas.height = 40 + fs1 + 20 + fs2 + 20 + fs3 + 40 + (previewData.note ? 20 + fs4 : 0);
+        ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = '#000000';
         
-        log('正在尋找寫入特徵值 (Characteristic)...');
-        printerCharacteristic = await findWritableCharacteristic(bluetoothServer);
-
-        if (printerCharacteristic) {
-          updateUI(true);
-          log('✅ 印表機連線準備就緒！', 'success');
-        } else {
-          throw new Error('未找到支援寫入的藍牙特徵值');
+        ctx.font = `${fw1} ${fs1}px "Noto Sans TC"`;
+        ctx.fillText(`${previewData.site} - ${new Date().toLocaleDateString('zh-TW')}`, 192, y);
+        y += (fs1/2 + 20 + fs2/2);
+        
+        ctx.font = `${fw2} ${fs2}px "Noto Sans TC"`;
+        ctx.fillText(previewData.name, 192, y);
+        y += (fs2/2 + 20 + fs3/2);
+        
+        ctx.font = `${fw3} ${fs3}px "Noto Sans TC"`;
+        ctx.fillText(`${previewData.large} 大瓶, ${previewData.medium} 中瓶`, 192, y);
+        
+        if (previewData.note) {
+          y += (fs3/2 + 20 + fs4/2);
+          ctx.font = `${fw4} ${fs4}px "Noto Sans TC"`;
+          ctx.fillText(`【 ${previewData.note} 】`, 192, y);
         }
-      } catch (err) {
-        log(`連線失敗: ${err.message}`, 'error');
-        updateUI(false);
+      } else if (currentPrintMode === 'A2') {
+        canvas.height = 420;
+        ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = '#000000';
+        ctx.textAlign = 'center';
+        ctx.font = '900 32px "Noto Sans TC"';
+        ctx.fillText('五寮尖山羊乳出貨單', 192, 50);
+
+        ctx.textAlign = 'left';
+        ctx.font = '700 24px "Noto Sans TC"';
+        ctx.fillText(`出貨地點：${document.getElementById('summarySiteSelect').value}`, 20, 100);
+        ctx.fillText(`出貨日期：${new Date().toLocaleDateString('zh-TW')}`, 20, 140);
+        ctx.fillText(`出貨內容的數量：`, 20, 180);
+        ctx.fillText(`大瓶：${document.getElementById('sumLarge').value} 瓶`, 40, 220);
+        ctx.fillText(`中瓶：${document.getElementById('sumMedium').value} 瓶`, 40, 260);
+        ctx.fillText('經手人簽名：________________', 20, 380);
       }
     }
 
-    async function findWritableCharacteristic(server) {
-      for (let uuid of SERVICE_UUIDS) {
-        try {
-          const service = await server.getPrimaryService(uuid);
-          const chars = await service.getCharacteristics();
-          for (let char of chars) {
-            if (char.properties.write || char.properties.writeWithoutResponse) {
-              log(`找到寫入點 (Service: ${uuid.split('-')[0]})`);
-              return char;
+    // D 分頁：儲存設定
+    function saveSheetConfig() {
+      const type = document.getElementById('templateType').value;
+      const url = document.getElementById('sheetUrl').value;
+      const name = document.getElementById('sheetName').value;
+      
+      if(!url || !name) return alert("請輸入完整綁定資訊！");
+      alert(`【模板 ${type}】已成功綁定至該工作表。\n(此功能之 API 串接邏輯將於後續整合)`);
+    }
+
+    // E 分頁：藍牙與列印指令 (保持不變)
+    function log(msg) { document.getElementById('log').innerHTML += `<div>${msg}</div>`; }
+    async function connectPrinter() {
+      if(!navigator.bluetooth) return alert("瀏覽器不支援藍牙");
+      try {
+        btDevice = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: ['000018f0-0000-1000-8000-00805f9b34fb'] });
+        const server = await btDevice.gatt.connect();
+        const services = await server.getPrimaryServices();
+        for (let s of services) {
+          for (let c of await s.getCharacteristics()) {
+            if (c.properties.write || c.properties.writeWithoutResponse) {
+              btCharacteristic = c;
+              document.getElementById('statusBadge').className = "px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400";
+              document.getElementById('statusBadge').innerText = "已連線";
+              return log("印表機連線成功！");
             }
           }
-        } catch(e) {}
-      }
-      return null;
-    }
-
-    function onDisconnected() {
-      log('藍牙連線已中斷', 'warn');
-      updateUI(false);
-      bluetoothServer = null;
-      printerCharacteristic = null;
-    }
-
-    function disconnectPrinter() {
-      if (bluetoothDevice && bluetoothDevice.gatt.connected) {
-        log('正在手動中斷連線...');
-        bluetoothDevice.gatt.disconnect();
-      }
-    }
-
-    function updateUI(isConnected) {
-      const statusDiv = document.getElementById('connStatus');
-      const btnConnect = document.getElementById('btnConnect');
-      const btnDisconnect = document.getElementById('btnDisconnect');
-
-      if (isConnected) {
-        statusDiv.innerHTML = `
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-inner">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> 已連線
-          </span>`;
-        btnConnect.classList.add('opacity-50', 'pointer-events-none');
-        btnDisconnect.disabled = false;
-      } else {
-        statusDiv.innerHTML = `
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30 shadow-inner">
-            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span> 未連線
-          </span>`;
-        btnConnect.classList.remove('opacity-50', 'pointer-events-none');
-        btnDisconnect.disabled = true;
-      }
-    }
-
-    // --- 列印與排版邏輯 ---
-
-    // 字串長度計算 (中文字算2，英數字算1)
-    function getStringWidth(str) {
-      let len = 0;
-      for (let i = 0; i < str.length; i++) {
-        if (str.charCodeAt(i) > 255) len += 2;
-        else len += 1;
-      }
-      return len;
-    }
-
-    // 靠右補齊空格
-    function padRight(str, totalWidth) {
-      const len = getStringWidth(str);
-      return len >= totalWidth ? str : str + ' '.repeat(totalWidth - len);
-    }
-
-    // 雙欄位排版 (左欄固定寬度，右欄接續)
-    function formatTwoColumnsLeftAlign(leftStr, rightStr, leftWidth = 16) {
-      return padRight(leftStr, leftWidth) + rightStr + "\n";
-    }
-
-    // 雙欄位排版 (一左一右靠邊對齊) - 總寬預設 32
-    function formatTwoColumnsSpaceBetween(leftStr, rightStr, totalWidth = 32) {
-      const leftLen = getStringWidth(leftStr);
-      const rightLen = getStringWidth(rightStr);
-      const spaceLen = totalWidth - leftLen - rightLen;
-      if (spaceLen > 0) {
-        return leftStr + ' '.repeat(spaceLen) + rightStr + "\n";
-      }
-      return leftStr + " " + rightStr + "\n";
-    }
-
-    // 將字串轉為 CP936 (GBK) 的 Uint8Array
-    function encodeToCP936(text) {
-      if (typeof cptable === 'undefined') throw new Error("CP936 編碼庫未載入");
-      const encoded = cptable.utils.encode(936, text);
-      return new Uint8Array(encoded);
-    }
-
-    // 分塊傳送藍牙資料
-    async function sendRawBytes(payloadBytes) {
-      if (!printerCharacteristic) {
-        alert("請先連線至印表機");
-        return false;
-      }
-      const total = payloadBytes.length;
-      let offset = 0;
-      log(`開始列印，資料大小: ${total} bytes...`);
-      try {
-        while (offset < total) {
-          const chunk = payloadBytes.slice(offset, offset + CHUNK_SIZE);
-          if (printerCharacteristic.properties.writeWithoutResponse) {
-            await printerCharacteristic.writeValueWithoutResponse(chunk);
-          } else {
-            await printerCharacteristic.writeValue(chunk);
-          }
-          offset += CHUNK_SIZE;
-          await new Promise(resolve => setTimeout(resolve, 20));
         }
-        log(`✅ 列印指令傳送完成`, 'success');
-        return true;
-      } catch (err) {
-        log(`❌ 傳送失敗: ${err.message}`, 'error');
-        return false;
-      }
+      } catch(e) { log("連線失敗：" + e); }
     }
 
-    // 產生並列印預購出單 (套用2欄位排版)
-    async function printPreOrderReceipt() {
-      if (!printerCharacteristic) {
-        log('請先點擊「搜尋並連線」', 'warn');
-        return;
+    // 畫布二值化轉圖邏輯
+    function getCanvasEscPosData(canvas) {
+      const ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
+      const imgData = ctx.getImageData(0,0,w,h).data;
+      const bytesPerLine = Math.ceil(w/8), bytes = new Uint8Array(bytesPerLine*h);
+      for(let y=0; y<h; y++) {
+        for(let x=0; x<w; x++) {
+          const i = (y*w+x)*4;
+          if(imgData[i+3]>128 && ((imgData[i]+imgData[i+1]+imgData[i+2])/3)<128) {
+            bytes[y*bytesPerLine + Math.floor(x/8)] |= (1 << (7-(x%8)));
+          }
+        }
       }
+      const payload = [0x1B, 0x40, 0x1D, 0x76, 0x30, 0x00, bytesPerLine%256, Math.floor(bytesPerLine/256), h%256, Math.floor(h/256)];
+      for(let i=0; i<bytes.length; i++) payload.push(bytes[i]);
+      payload.push(0x0A, 0x0A, 0x1D, 0x56, 0x42, 0x00);
+      return new Uint8Array(payload);
+    }
 
-      try {
-        log('建構 ESC/POS 預購單指令...');
-        const payload = [];
-        const addBytes = (arr) => { for(let i=0; i<arr.length; i++) payload.push(arr[i]); };
-
-        // 1. 系統設定
-        addBytes([0x1B, 0x40]); // 初始化印表機 (ESC @)
-        addBytes([0x1C, 0x26]); // 啟用漢字模式 (FS &)
-
-        // 2. 標頭 (置中)
-        addBytes([0x1B, 0x61, 0x01]); // 置中對齊
-        const headerStr = 
-          "================================\n" +
-          "         咩味時刻工作室         \n" +
-          "       [ 預 購 保 留 單 ]       \n" +
-          "================================\n";
-        addBytes(encodeToCP936(headerStr));
-
-        // 3. 內文資料 (靠左對齊，雙欄位設計)
-        addBytes([0x1B, 0x61, 0x00]); // 靠左對齊
-        
-        let contentStr = "";
-        
-        // --- 訂單資訊 (上下標題與數值的雙欄結構) ---
-        contentStr += formatTwoColumnsLeftAlign("單號 ORDER NO.", "客戶 CUSTOMER", 17);
-        contentStr += formatTwoColumnsLeftAlign("PO-20261003-001", "王小明", 17);
-        
-        contentStr += formatTwoColumnsLeftAlign("建檔 DATE/TIME", "取貨 PICKUP", 17);
-        contentStr += formatTwoColumnsLeftAlign("2026/10/03 20:35", "10/05 14:00", 17);
-        
-        contentStr += "================================\n";
-
-        // --- 商品列表 (兩端對齊) ---
-        contentStr += formatTwoColumnsSpaceBetween("品名 ITEM", "金額 AMT");
-        contentStr += "--------------------------------\n";
-        contentStr += formatTwoColumnsSpaceBetween("原味山羊乳 x2", "300");
-        contentStr += formatTwoColumnsSpaceBetween("草莓山羊乳 x1", "160");
-        contentStr += "================================\n";
-
-        // --- 合計區域 (兩端對齊) ---
-        contentStr += formatTwoColumnsSpaceBetween("狀態 STATUS :", "已付清");
-        contentStr += formatTwoColumnsSpaceBetween("合計AMT. :", "NT$460");
-        
-        contentStr += "--------------------------------\n";
-        addBytes(encodeToCP936(contentStr));
-
-        // 4. 頁尾備註 (置中)
-        addBytes([0x1B, 0x61, 0x01]); // 置中對齊
-        const footerStr = 
-          "* 請憑此單於約定時間取貨 *\n" +
-          "感謝您對咩味時刻的支持\n\n\n\n";
-        addBytes(encodeToCP936(footerStr));
-
-        // 5. 切紙指令
-        addBytes([0x1D, 0x56, 0x42, 0x00]); // 部分切刀
-
-        // 傳送緩衝區
-        const finalBuffer = new Uint8Array(payload);
-        await sendRawBytes(finalBuffer);
-        
-      } catch (error) {
-        log(`列印錯誤: ${error.message}`, 'error');
+    async function executeCanvasPrint() {
+      if(!btCharacteristic) return alert("請先連線印表機！");
+      const canvas = document.getElementById('previewCanvas');
+      const data = getCanvasEscPosData(canvas);
+      
+      let offset = 0;
+      while (offset < data.length) {
+        const chunk = data.slice(offset, offset + CHUNK_SIZE);
+        if (btCharacteristic.properties.writeWithoutResponse) await btCharacteristic.writeValueWithoutResponse(chunk);
+        else await btCharacteristic.writeValue(chunk);
+        offset += CHUNK_SIZE;
+        await new Promise(r => setTimeout(r, 20));
       }
+      log("列印完成！");
     }
   </script>
 </body>
